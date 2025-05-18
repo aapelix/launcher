@@ -2,6 +2,7 @@ use dotenv::dotenv;
 use downloader_mc::client::DownloadVersion;
 use downloader_mc::launcher_manifest::LauncherManifestVersion;
 use keyring::Entry;
+use mc_bootstrap::{ClientAuth, ClientBootstrap, ClientSettings, ClientVersion};
 use minecraft_msa_auth::MinecraftAuthorizationFlow;
 use oauth2::basic::BasicClient;
 use oauth2::{
@@ -100,6 +101,67 @@ impl Reporter for ProgressTrack {
         let mut pb = self.pb.lock().unwrap();
         pb.finish();
     }
+}
+
+fn get_mc_dir(name: &str) -> PathBuf {
+    return PathBuf::from(format!("/home/aapelix/launcher/{}", name));
+}
+
+fn get_java_path() -> PathBuf {
+    return PathBuf::from("/usr/lib/jvm/java-21-openjdk/bin/java");
+}
+
+#[tauri::command]
+async fn launch_instance(name: String, version: String, version_type: String) {
+    let profile = get_player_profile().await.unwrap();
+    let entry = Entry::new("minecraft_auth", "minecraft_user").unwrap();
+    let token = entry.get_password().unwrap();
+
+    println!(
+        "{:?}",
+        get_mc_dir(&name)
+            .join("versions")
+            .join(&version)
+            .join(format!("{}.jar", &version))
+    );
+
+    println!(
+        "{:?}",
+        get_mc_dir(&name)
+            .join("versions")
+            .join(&version)
+            .join(format!("{}.json", &version))
+    );
+
+    let bootstrap = ClientBootstrap::new(ClientSettings {
+        assets: get_mc_dir(&name).join("assets"),
+        auth: ClientAuth {
+            username: profile.name,
+            access_token: Some(token),
+            uuid: Some(profile.id),
+        },
+        game_dir: get_mc_dir(&name),
+        java_bin: get_java_path(),
+        libraries_dir: get_mc_dir(&name).join("libraries"),
+        manifest_file: get_mc_dir(&name)
+            .join("versions")
+            .join(&version)
+            .join(format!("{}.json", &version)),
+        natives_dir: get_mc_dir(&name)
+            .join("versions")
+            .join(&version)
+            .join("natives"),
+        version: ClientVersion {
+            version: version.clone(),
+            version_type: version_type,
+        },
+        version_jar_file: get_mc_dir(&name)
+            .join("versions")
+            .join(&version)
+            .join(format!("{}.jar", &version)),
+    });
+
+    bootstrap.launch().unwrap();
 }
 
 #[tauri::command]
@@ -281,6 +343,7 @@ pub fn run() {
             sign_in,
             download_minecraft_version,
             get_minecraft_versions,
+            launch_instance,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

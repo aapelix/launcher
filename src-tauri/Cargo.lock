@@ -2299,6 +2299,7 @@ dependencies = [
  "dotenv",
  "downloader_mc",
  "keyring",
+ "mc_bootstrap",
  "minecraft-msa-auth",
  "oauth2",
  "pbr",
@@ -2442,6 +2443,16 @@ name = "matches"
 version = "0.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2532096657941c2fea9c289d370a250971c689d4f143798ff67113ec042024a5"
+
+[[package]]
+name = "mc_bootstrap"
+version = "0.1.1"
+source = "git+https://github.com/aapelix/bootstrap/?branch=main#073a36d02ca09eaf14407f87f2863a261bb4a2d3"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+]
 
 [[package]]
 name = "memchr"

@@ -30,7 +30,7 @@ export default function New() {
       modal?.showModal();
 
       const res = await invoke("download_minecraft_version", {
-        path: "./.minecraft",
+        path: "/home/aapelix/launcher/" + name(),
         version: selected(),
       });
 
