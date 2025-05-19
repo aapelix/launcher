@@ -1,6 +1,7 @@
 use dotenv::dotenv;
 use downloader_mc::client::DownloadVersion;
 use downloader_mc::launcher_manifest::LauncherManifestVersion;
+use downloader_mc::prelude::{ClientDownloader, Reporter};
 use keyring::Entry;
 use mc_bootstrap::{ClientAuth, ClientBootstrap, ClientSettings, ClientVersion};
 use minecraft_msa_auth::MinecraftAuthorizationFlow;
@@ -9,8 +10,12 @@ use oauth2::{
     AuthType, AuthUrl, AuthorizationCode, ClientId, CsrfToken, PkceCodeChallenge, RedirectUrl,
     Scope, TokenResponse, TokenUrl,
 };
+use pbr::ProgressBar;
 use reqwest::{Client, ClientBuilder, Url};
+use serde::{Deserialize, Serialize};
 use std::env;
+use std::fs::File;
+use std::io::Write;
 use std::{
     io::Stdout,
     path::PathBuf,
@@ -21,12 +26,8 @@ use std::{
 };
 use tauri::Emitter;
 use tauri::Window;
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader as TokioBufReader};
 use tokio::net::TcpListener;
-
-use downloader_mc::prelude::{ClientDownloader, Reporter};
-use pbr::ProgressBar;
-use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct PlayerSkin {
@@ -50,6 +51,73 @@ pub struct PlayerProfile {
     pub name: String,
     pub skins: Vec<PlayerSkin>,
     pub capes: Vec<PlayerCape>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct PackageInfo {
+    name: String,
+    version: String,
+    version_type: String,
+}
+
+fn write_instance_json(name: String, version: String, version_type: String) -> Result<(), ()> {
+    let info = PackageInfo {
+        name: name.clone(),
+        version,
+        version_type,
+    };
+    let json = serde_json::to_string_pretty(&info).unwrap();
+    let path = get_mc_dir(&name).join("instance.json");
+    let mut file = File::create(path).expect("File not found");
+    file.write_all(json.as_bytes()).expect("Writing failed");
+    Ok(())
+}
+
+// Modified command to make it async
+#[tauri::command]
+async fn load_instances() -> Result<Vec<PackageInfo>, String> {
+    let mut instances = Vec::new();
+    let base_dir = PathBuf::from("/home/aapelix/launcher");
+
+    let read_dir = match tokio::fs::read_dir(&base_dir).await {
+        Ok(dir) => dir,
+        Err(e) => return Err(format!("Failed to read launcher directory: {}", e)),
+    };
+
+    let mut dir_entries = read_dir;
+
+    while let Ok(Some(entry)) = dir_entries.next_entry().await {
+        let path = entry.path();
+
+        if path.is_dir() {
+            let json_path = path.join("instance.json");
+
+            if tokio::fs::try_exists(&json_path).await.unwrap_or(false) {
+                match tokio::fs::read(&json_path).await {
+                    Ok(content) => {
+                        match serde_json::from_slice::<PackageInfo>(&content) {
+                            Ok(info) => {
+                                instances.push(info);
+                            }
+                            Err(e) => {
+                                eprintln!(
+                                    "Failed to parse instance.json at {:?}: {}",
+                                    json_path, e
+                                );
+                                // Continue to the next entry instead of failing completely
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("Failed to read instance.json at {:?}: {}", json_path, e);
+                        // Continue to the next entry
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(instances)
 }
 
 pub struct ProgressTrack {
@@ -112,26 +180,19 @@ fn get_java_path() -> PathBuf {
 }
 
 #[tauri::command]
+async fn delete_instance(name: &str) -> Result<(), ()> {
+    tokio::fs::remove_dir_all(get_mc_dir(name))
+        .await
+        .expect("Deleting instance failed");
+
+    Ok(())
+}
+
+#[tauri::command]
 async fn launch_instance(name: String, version: String, version_type: String) {
     let profile = get_player_profile().await.unwrap();
     let entry = Entry::new("minecraft_auth", "minecraft_user").unwrap();
     let token = entry.get_password().unwrap();
-
-    println!(
-        "{:?}",
-        get_mc_dir(&name)
-            .join("versions")
-            .join(&version)
-            .join(format!("{}.jar", &version))
-    );
-
-    println!(
-        "{:?}",
-        get_mc_dir(&name)
-            .join("versions")
-            .join(&version)
-            .join(format!("{}.json", &version))
-    );
 
     let bootstrap = ClientBootstrap::new(ClientSettings {
         assets: get_mc_dir(&name).join("assets"),
@@ -165,9 +226,15 @@ async fn launch_instance(name: String, version: String, version_type: String) {
 }
 
 #[tauri::command]
-fn get_minecraft_versions() -> Result<Vec<LauncherManifestVersion>, ()> {
-    let downloader = ClientDownloader::new().map_err(|e| e.to_string()).unwrap();
-    Ok(downloader.get_list_versions())
+async fn get_minecraft_versions() -> Result<Vec<LauncherManifestVersion>, ()> {
+    let versions = tokio::task::spawn_blocking(|| {
+        let downloader = ClientDownloader::new().map_err(|_| ())?;
+        Ok::<_, ()>(downloader.get_list_versions())
+    })
+    .await
+    .map_err(|_| ())??;
+
+    Ok(versions)
 }
 
 #[tauri::command]
@@ -175,9 +242,13 @@ async fn download_minecraft_version(
     window: tauri::Window,
     path: Option<String>,
     version: Option<String>,
+    name: String,
+    version_type: String,
 ) -> Result<String, String> {
     let path = path.unwrap_or_else(|| "./.minecraft".to_string());
     let version = version.unwrap_or_else(|| "1.19.4".to_string());
+
+    println!("Starting downloading");
 
     let result = tokio::task::spawn_blocking(move || {
         let downloader = ClientDownloader::new().map_err(|e| e.to_string())?;
@@ -194,7 +265,9 @@ async fn download_minecraft_version(
             )
             .map_err(|e| e.to_string())?;
 
-        Ok(format!("Downloaded Minecraft version {version} to {path}"))
+        let _ = write_instance_json(name, version, version_type);
+
+        Ok(format!("Downloaded Minecraft version"))
     })
     .await
     .map_err(|e| format!("Join error: {:?}", e))?;
@@ -233,7 +306,7 @@ async fn sign_in_async() -> Result<PlayerProfile, Box<dyn std::error::Error>> {
     let listener = TcpListener::bind("127.0.0.1:8114").await?;
     let (stream, _) = listener.accept().await?;
     stream.readable().await?;
-    let mut stream = BufReader::new(stream);
+    let mut stream = TokioBufReader::new(stream);
 
     let code;
     let state;
@@ -344,6 +417,8 @@ pub fn run() {
             download_minecraft_version,
             get_minecraft_versions,
             launch_instance,
+            load_instances,
+            delete_instance
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

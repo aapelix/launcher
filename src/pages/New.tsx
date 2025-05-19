@@ -14,7 +14,9 @@ type LauncherManifestVersion = {
 export default function New() {
   const [versions, setVersions] = createSignal<LauncherManifestVersion[]>([]);
   const [filter, setFilter] = createSignal("");
-  const [selected, setSelected] = createSignal("");
+  const [selected, setSelected] = createSignal<LauncherManifestVersion | null>(
+    null,
+  );
 
   const [progress, setProgress] = createSignal(0);
 
@@ -23,15 +25,19 @@ export default function New() {
   const loaders = ["Vanilla", "Fabric", "Forge", "NeoForge", "Quilt"];
 
   const [loader, setLoader] = createSignal(loaders[0]);
+  const [downloading, setDownloading] = createSignal(false);
 
   async function downloadVersion() {
     try {
+      setDownloading(true);
       const modal = document.getElementById("my_modal_1") as HTMLDialogElement;
       modal?.showModal();
 
       const res = await invoke("download_minecraft_version", {
         path: "/home/aapelix/launcher/" + name(),
-        version: selected(),
+        version: selected()?.id,
+        name: name(),
+        versionType: selected()?.type,
       });
 
       console.log(res);
@@ -45,8 +51,13 @@ export default function New() {
       setProgress(event.payload);
     });
 
+    const unlisten_2 = listen("download-complete", () => {
+      setDownloading(false);
+    });
+
     onCleanup(async () => {
       (await unlisten)();
+      (await unlisten_2)();
     });
   });
 
@@ -88,7 +99,7 @@ export default function New() {
             class="input w-full"
             placeholder="Select a version"
             id="version"
-            value={selected()}
+            value={selected()?.id}
             onInput={(e) => {
               setFilter(e.currentTarget.value);
             }}
@@ -100,7 +111,7 @@ export default function New() {
                 <div
                   class="p-1 cursor-pointer hover:bg-[#e9e9e9]"
                   onClick={() => {
-                    setSelected(v.id);
+                    setSelected(v);
                     setFilter("");
                   }}
                 >
@@ -125,20 +136,48 @@ export default function New() {
             </div>
           ))}
 
-          <button class="btn mt-3 w-full" onClick={() => downloadVersion()}>
+          <button
+            disabled={!name() && !selected()}
+            class="btn mt-3 w-full"
+            onClick={() => downloadVersion()}
+          >
             Create
           </button>
         </div>
       </div>
 
-      <dialog id="my_modal_1" class="modal">
+      <dialog
+        id="my_modal_1"
+        class="modal"
+        onClick={(e) => {
+          if (downloading()) e.stopPropagation(); // prevent outside click closing
+        }}
+        onCancel={(e) => {
+          if (downloading()) e.preventDefault(); // prevent esc closing
+        }}
+      >
         <div class="modal-box flex flex-col items-center">
-          <p class="py-4">Downloading</p>
+          <p class="py-4">
+            {downloading() ? "Downloading" : "Download complete!"}
+          </p>
           <progress
             class="progress w-56"
             value={progress()}
             max={100}
           ></progress>
+          {!downloading() && (
+            <button
+              class="btn py-4"
+              onClick={() => {
+                const modal = document.getElementById(
+                  "my_modal_1",
+                ) as HTMLDialogElement;
+                modal?.close("downloadComplete");
+              }}
+            >
+              Close
+            </button>
+          )}
         </div>
       </dialog>
     </>

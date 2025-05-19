@@ -2447,7 +2447,7 @@ checksum = "2532096657941c2fea9c289d370a250971c689d4f143798ff67113ec042024a5"
 [[package]]
 name = "mc_bootstrap"
 version = "0.1.1"
-source = "git+https://github.com/aapelix/bootstrap/?branch=main#e546d339a0eb036c8acda8a36d72c6932f40265a"
+source = "git+https://github.com/aapelix/bootstrap/?branch=main#6377fc0d10570d05876d03b1c58ac007cbef5f4e"
 dependencies = [
  "serde",
  "serde_json",
