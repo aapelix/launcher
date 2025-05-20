@@ -1022,9 +1022,8 @@ checksum = "77c90badedccf4105eca100756a0b1289e191f6fcbdadd3cee1d2f614f97da8f"
 
 [[package]]
 name = "downloader_mc"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e7a99541eca6aa5c53fd7d494ec109939aede4566dcb938f550e910f156a628c"
+version = "0.1.4"
+source = "git+https://github.com/aapelix/downloader/?branch=main#b2bc7e59183eff86f8f19177555d72cbbe14611c"
 dependencies = [
  "async-trait",
  "chksum",
@@ -2302,6 +2301,7 @@ dependencies = [
  "mc_bootstrap",
  "minecraft-msa-auth",
  "oauth2",
+ "open",
  "pbr",
  "reqwest 0.12.15",
  "serde",

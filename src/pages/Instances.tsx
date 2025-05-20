@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { Ban, Package, Play, Trash } from "lucide-solid";
+import { Ban, Folder, Package, Play, Trash } from "lucide-solid";
 import { createSignal, onMount } from "solid-js";
 
 type Instance = {
@@ -101,6 +101,16 @@ export default function Instances() {
                     </>
                   ) : (
                     <>
+                      <button
+                        class="btn btn-square"
+                        onClick={() =>
+                          invoke("open_instance_folder", {
+                            name: instance.name,
+                          })
+                        }
+                      >
+                        <Folder />
+                      </button>
                       <button class="btn btn-square">
                         <Package />
                       </button>

@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { createSignal, onMount, For } from "solid-js";
+import { createSignal, onMount, For, createEffect } from "solid-js";
 import { onCleanup } from "solid-js";
 
 type LauncherManifestVersion = {
@@ -11,12 +11,26 @@ type LauncherManifestVersion = {
   releaseTime: string; // ISO timestamp of release date
 };
 
+export interface FabricLoaderManifest {
+  loader: {
+    separator: string;
+    build: number;
+    maven: string;
+    version: string;
+    stable: boolean;
+  };
+}
+
 export default function New() {
   const [versions, setVersions] = createSignal<LauncherManifestVersion[]>([]);
   const [filter, setFilter] = createSignal("");
   const [selected, setSelected] = createSignal<LauncherManifestVersion | null>(
     null,
   );
+
+  const [fabricVersions, setFabricVersions] = createSignal<
+    FabricLoaderManifest[]
+  >([]);
 
   const [progress, setProgress] = createSignal(0);
 
@@ -25,7 +39,29 @@ export default function New() {
   const loaders = ["Vanilla", "Fabric", "Forge", "NeoForge", "Quilt"];
 
   const [loader, setLoader] = createSignal(loaders[0]);
+  const [loaderVersion, setLoaderVersion] =
+    createSignal<FabricLoaderManifest | null>(null);
   const [downloading, setDownloading] = createSignal(false);
+
+  createEffect(async () => {
+    if (selected() != null) {
+      if (loader() == "Fabric") {
+        await getFabricVersions(selected()!);
+      }
+    }
+  });
+
+  async function getFabricVersions(version: LauncherManifestVersion) {
+    try {
+      const data = await invoke<FabricLoaderManifest[]>(
+        "get_fabric_loader_versions",
+        { version: version.id },
+      );
+      setFabricVersions(data);
+    } catch (err) {
+      console.error(err);
+    }
+  }
 
   async function downloadVersion() {
     try {
@@ -34,10 +70,12 @@ export default function New() {
       modal?.showModal();
 
       const res = await invoke("download_minecraft_version", {
-        path: "/home/aapelix/launcher/" + name(),
+        path: "/home/aapelix/launcher/instances/" + name(),
         version: selected()?.id,
         name: name(),
         versionType: selected()?.type,
+        launcher: loader()?.toLowerCase(),
+        launcherId: loaderVersion()?.loader.version,
       });
 
       console.log(res);
@@ -79,7 +117,7 @@ export default function New() {
 
   return (
     <>
-      <div class="flex justify-center w-screen mt-32 items-center">
+      <div class="flex justify-center w-screen mt-4 pb-14 items-center">
         <div class="py-2 px-2 flex flex-col max-w-[800px] w-full">
           <h1>Create a new instance</h1>
 
@@ -135,6 +173,27 @@ export default function New() {
               <label>{name}</label>
             </div>
           ))}
+
+          {loader() == "Fabric" && (
+            <>
+              <label class="label mt-3">Fabric Version</label>
+              <p class="input w-full">{loaderVersion()?.loader.version}</p>
+              <div class="max-h-[300px] rounded-sm overflow-y-auto border border-gray-300 bg-white z-50 w-full mt-1">
+                <For each={fabricVersions()}>
+                  {(version) => (
+                    <div
+                      class="p-1 cursor-pointer hover:bg-[#e9e9e9]"
+                      onClick={() => {
+                        setLoaderVersion(version);
+                      }}
+                    >
+                      {version.loader.version}
+                    </div>
+                  )}
+                </For>
+              </div>
+            </>
+          )}
 
           <button
             disabled={!name() && !selected()}

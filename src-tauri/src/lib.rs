@@ -1,6 +1,6 @@
 use dotenv::dotenv;
-use downloader_mc::client::DownloadVersion;
-use downloader_mc::launcher_manifest::LauncherManifestVersion;
+use downloader_mc::client::{DownloadVersion, Launcher};
+use downloader_mc::launcher_manifest::{FabricLoaderManifest, LauncherManifestVersion};
 use downloader_mc::prelude::{ClientDownloader, Reporter};
 use keyring::Entry;
 use mc_bootstrap::{ClientAuth, ClientBootstrap, ClientSettings, ClientVersion};
@@ -73,11 +73,15 @@ fn write_instance_json(name: String, version: String, version_type: String) -> R
     Ok(())
 }
 
-// Modified command to make it async
+#[tauri::command]
+fn open_instance_folder(name: String) {
+    open::that(get_mc_dir(&name)).unwrap()
+}
+
 #[tauri::command]
 async fn load_instances() -> Result<Vec<PackageInfo>, String> {
     let mut instances = Vec::new();
-    let base_dir = PathBuf::from("/home/aapelix/launcher");
+    let base_dir = get_base_dir().join("instances");
 
     let read_dir = match tokio::fs::read_dir(&base_dir).await {
         Ok(dir) => dir,
@@ -171,8 +175,12 @@ impl Reporter for ProgressTrack {
     }
 }
 
+fn get_base_dir() -> PathBuf {
+    return PathBuf::from("/home/aapelix/launcher/");
+}
+
 fn get_mc_dir(name: &str) -> PathBuf {
-    return PathBuf::from(format!("/home/aapelix/launcher/{}", name));
+    return PathBuf::from(format!("/home/aapelix/launcher/instances/{}", name));
 }
 
 fn get_java_path() -> PathBuf {
@@ -195,7 +203,7 @@ async fn launch_instance(name: String, version: String, version_type: String) {
     let token = entry.get_password().unwrap();
 
     let bootstrap = ClientBootstrap::new(ClientSettings {
-        assets: get_mc_dir(&name).join("assets"),
+        assets: get_base_dir().join("assets"),
         auth: ClientAuth {
             username: profile.name,
             access_token: Some(token),
@@ -203,12 +211,9 @@ async fn launch_instance(name: String, version: String, version_type: String) {
         },
         game_dir: get_mc_dir(&name),
         java_bin: get_java_path(),
-        libraries_dir: get_mc_dir(&name).join("libraries"),
-        manifest_file: get_mc_dir(&name)
-            .join("versions")
-            .join(&version)
-            .join(format!("{}.json", &version)),
-        natives_dir: get_mc_dir(&name)
+        libraries_dir: get_base_dir().join("libraries"),
+        manifest_file: get_mc_dir(&name).join("manifest.json"),
+        natives_dir: get_base_dir()
             .join("versions")
             .join(&version)
             .join("natives"),
@@ -216,7 +221,7 @@ async fn launch_instance(name: String, version: String, version_type: String) {
             version: version.clone(),
             version_type: version_type,
         },
-        version_jar_file: get_mc_dir(&name)
+        version_jar_file: get_base_dir()
             .join("versions")
             .join(&version)
             .join(format!("{}.jar", &version)),
@@ -238,34 +243,65 @@ async fn get_minecraft_versions() -> Result<Vec<LauncherManifestVersion>, ()> {
 }
 
 #[tauri::command]
+async fn get_fabric_loader_versions(version: String) -> Result<Vec<FabricLoaderManifest>, ()> {
+    let versions = tokio::task::spawn_blocking(move || {
+        let downloader = ClientDownloader::new().map_err(|_| ())?;
+        Ok::<_, ()>(
+            downloader
+                .get_list_fabric_loader_versions(version.as_str())
+                .unwrap(),
+        )
+    })
+    .await
+    .map_err(|_| ())??;
+
+    Ok(versions)
+}
+
+#[tauri::command]
 async fn download_minecraft_version(
     window: tauri::Window,
     path: Option<String>,
     version: Option<String>,
     name: String,
     version_type: String,
+    launcher: Option<String>,
+    launcher_id: Option<String>,
 ) -> Result<String, String> {
     let path = path.unwrap_or_else(|| "./.minecraft".to_string());
     let version = version.unwrap_or_else(|| "1.19.4".to_string());
+    let launcher_type = match launcher.as_deref() {
+        Some("fabric") => Launcher::Fabric,
+        Some("forge") => Launcher::Forge,
+        _ => Launcher::Vanilla,
+    };
+
+    let launcher_id_clone = launcher_id.clone();
+    let version_clone = version.clone();
+    let name_clone = name.clone();
+    let version_type_clone = version_type.clone();
 
     println!("Starting downloading");
 
     let result = tokio::task::spawn_blocking(move || {
         let downloader = ClientDownloader::new().map_err(|e| e.to_string())?;
 
-        println!("Start Download Minecraft {version} version in {path}");
+        println!("Start Download Minecraft {version_clone} version in {path}");
 
         downloader
             .download_version(
-                &version,
+                &version_clone,
                 &PathBuf::from(&path),
+                &get_base_dir(),
                 None,
                 None,
+                Some(launcher_type),
+                launcher_id_clone.as_deref(),
                 Some(Arc::new(Mutex::new(ProgressTrack::new(window)))),
             )
             .map_err(|e| e.to_string())?;
 
-        let _ = write_instance_json(name, version, version_type);
+        let _ = write_instance_json(name_clone, version_clone, version_type_clone);
 
         Ok(format!("Downloaded Minecraft version"))
     })
@@ -418,7 +454,9 @@ pub fn run() {
             get_minecraft_versions,
             launch_instance,
             load_instances,
-            delete_instance
+            delete_instance,
+            get_fabric_loader_versions,
+            open_instance_folder
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -40,6 +40,7 @@ reqwest = { version = "0.12.15", default-features = false, features = [
 ] }
 webbrowser = "1.0.4"
 tokio = { version = "1.45.0", features = ["full"] }
-downloader_mc = "0.1.0"
+downloader_mc = { git = "https://github.com/aapelix/downloader/", branch = "main" }
 pbr = "1.1.1"
 mc_bootstrap = { git = "https://github.com/aapelix/bootstrap/", branch = "main" }
+open = "5.3.2"
