@@ -1,3 +1,4 @@
+import { useNavigate } from "@solidjs/router";
 import { invoke } from "@tauri-apps/api/core";
 import { Ban, Folder, Package, Play, Trash } from "lucide-solid";
 import { createSignal, onMount } from "solid-js";
@@ -6,6 +7,8 @@ type Instance = {
   name: string;
   version: string;
   version_type: string;
+  uuid: String;
+  path: String;
   running: boolean | null;
 };
 
@@ -76,15 +79,17 @@ export default function Instances() {
     }
   });
 
+  const navigate = useNavigate();
+
   return (
     <>
-      <div class="flex justify-center w-screen mt-32 items-center">
+      <div class="flex justify-center w-screen mt-32 h-screen bg-base-200">
         <div class="py-2 px-2 flex flex-col gap-2 max-w-[800px] w-full">
           {instances().length == 0 && (
             <p class="text-center">No instances found</p>
           )}
           {instances().map((instance) => (
-            <div class="card w-full shadow-sm">
+            <div class="card border border-base-300 bg-base-100 w-full">
               <div class="card-body">
                 <div class="card-title">
                   <h2>{instance.name}</h2>-<h2>{instance.version}</h2>
@@ -94,6 +99,16 @@ export default function Instances() {
                     <>
                       <button class="btn btn-ghost" disabled>
                         Running
+                      </button>
+                      <button
+                        class="btn btn-square"
+                        onClick={() =>
+                          invoke("open_instance_folder", {
+                            name: instance.name,
+                          })
+                        }
+                      >
+                        <Folder />
                       </button>
                       <button class="btn btn-square">
                         <Ban />
@@ -111,7 +126,10 @@ export default function Instances() {
                       >
                         <Folder />
                       </button>
-                      <button class="btn btn-square">
+                      <button
+                        onClick={() => navigate("/mod/" + instance.uuid)}
+                        class="btn btn-square"
+                      >
                         <Package />
                       </button>
                       <button

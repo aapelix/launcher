@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@minht11/solid-virtual-container':
+        specifier: ^0.2.1
+        version: 0.2.1(solid-js@1.9.7)
       '@solidjs/router':
         specifier: ^0.15.3
         version: 0.15.3(solid-js@1.9.7)
@@ -300,6 +303,11 @@ packages:
 
   '@jridgewell/trace-mapping@0.3.25':
     resolution: {integrity: sha512-vNk6aEwybGtawWmy/PzwnGDOjCkLWSD2wqvjGGAgOAwCGWySYXfYoxt00IJkTF+8Lb57DwOb3Aa0o9CApepiYQ==}
+
+  '@minht11/solid-virtual-container@0.2.1':
+    resolution: {integrity: sha512-HvQWx1uE5NWwx9WsN4waFtmyOjhZKMA/3vBf+j3zGsRfi556LCUk4oOmqZcOvIB5nEpHezvuZ8oUlwxigdO3Xg==}
+    peerDependencies:
+      solid-js: '>= 1.0.0'
 
   '@rollup/rollup-android-arm-eabi@4.41.0':
     resolution: {integrity: sha512-KxN+zCjOYHGwCl4UCtSfZ6jrq/qi88JDUtiEFk8LELEHq2Egfc/FgW+jItZiOLRuQfb/3xJSgFuNPC9jzggX+A==}
@@ -1153,6 +1161,10 @@ snapshots:
     dependencies:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.0
+
+  '@minht11/solid-virtual-container@0.2.1(solid-js@1.9.7)':
+    dependencies:
+      solid-js: 1.9.7
 
   '@rollup/rollup-android-arm-eabi@4.41.0':
     optional: true

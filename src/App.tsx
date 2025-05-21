@@ -46,7 +46,7 @@ function App(props: any) {
 
   return (
     <>
-      <main>
+      <main class="bg-base-200 h-full">
         <nav class="flex justify-between px-2 py-2 items-center">
           {!profile() && (
             <button class="btn" onClick={() => signIn()}>
@@ -55,7 +55,7 @@ function App(props: any) {
           )}
 
           {profile() && (
-            <div class="flex items-center gap-2 hover:bg-[#e9e9e9] px-2 py-1 rounded-lg duration-300 cursor-pointer">
+            <div class="flex items-center gap-2 btn btn-ghost">
               <img
                 class="rounded-lg h-8"
                 src={`https://crafatar.com/avatars/${profile()!.id}`}
@@ -65,28 +65,19 @@ function App(props: any) {
           )}
 
           <div class="flex gap-3">
-            <a
-              href="/new"
-              class="hover:bg-[#e9e9e9] px-2 py-1 rounded-lg duration-300 cursor-pointer"
-            >
+            <a href="/new" class="btn btn-ghost">
               New Instance
             </a>
-            <a
-              href="/"
-              class="hover:bg-[#e9e9e9] px-2 py-1 rounded-lg duration-300 cursor-pointer"
-            >
+            <a href="/" class="btn btn-ghost">
               Instances
             </a>
-            <a
-              href="/conf"
-              class="hover:bg-[#e9e9e9] px-2 py-1 rounded-lg duration-300 cursor-pointer"
-            >
+            <a href="/conf" class="btn btn-ghost">
               Settings
             </a>
           </div>
         </nav>
+        {props.children}
       </main>
-      {props.children}
     </>
   );
 }

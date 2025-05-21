@@ -34,7 +34,16 @@ export default function New() {
 
   const [progress, setProgress] = createSignal(0);
 
-  const [name, setName] = createSignal("");
+  const [customName, setCustomName] = createSignal("");
+  const [autoName, setAutoName] = createSignal("");
+  const name = () => customName() || autoName();
+
+  createEffect(() => {
+    const base = selected() ? `Minecraft ${selected()!.id}` : "Minecraft";
+    const withLoader =
+      loader() !== "Vanilla" ? `${base} with ${loader()}` : base;
+    setAutoName(withLoader);
+  });
 
   const loaders = ["Vanilla", "Fabric", "Forge", "NeoForge", "Quilt"];
 
@@ -58,6 +67,7 @@ export default function New() {
         { version: version.id },
       );
       setFabricVersions(data);
+      setLoaderVersion(fabricVersions()[0]);
     } catch (err) {
       console.error(err);
     }
@@ -90,6 +100,7 @@ export default function New() {
     });
 
     const unlisten_2 = listen("download-complete", () => {
+      setProgress(100);
       setDownloading(false);
     });
 
@@ -105,6 +116,7 @@ export default function New() {
         "get_minecraft_versions",
       );
       setVersions(data);
+      setSelected(versions()[0]);
     } catch (err) {
       console.error(err);
     }
@@ -119,7 +131,7 @@ export default function New() {
     <>
       <div class="flex justify-center w-screen mt-4 pb-14 items-center">
         <div class="py-2 px-2 flex flex-col max-w-[800px] w-full">
-          <h1>Create a new instance</h1>
+          <h1 class="font-bold text-2xl">Create a new instance</h1>
 
           <label class="label mt-3">Instance name</label>
           <input
@@ -128,7 +140,7 @@ export default function New() {
             class="input w-full"
             placeholder="Untitled"
             value={name()}
-            onChange={(e) => setName(e.target.value)}
+            onInput={(e) => setCustomName(e.currentTarget.value)}
           />
 
           <label class="label mt-3">Version</label>
@@ -143,20 +155,22 @@ export default function New() {
             }}
           />
 
-          <div class="max-h-[300px] rounded-sm overflow-y-auto border border-gray-300 bg-white z-50 w-full mt-1">
-            <For each={filtered()}>
-              {(v) => (
-                <div
-                  class="p-1 cursor-pointer hover:bg-[#e9e9e9]"
-                  onClick={() => {
-                    setSelected(v);
-                    setFilter("");
-                  }}
-                >
-                  {v.id}
-                </div>
-              )}
-            </For>
+          <div class="card bg-base-100 border border-base-300 max-h-[300px] overflow-y-auto z-50 w-full mt-1 hide-scrollbar">
+            <div class="card-body">
+              <For each={filtered()}>
+                {(v) => (
+                  <div
+                    class="p-1 cursor-pointer hover:bg-base-200 px-2 py-2 rounded-2xl"
+                    onClick={() => {
+                      setSelected(v);
+                      setFilter("");
+                    }}
+                  >
+                    {v.id}
+                  </div>
+                )}
+              </For>
+            </div>
           </div>
 
           <label class="label mt-3">Loader</label>
@@ -178,19 +192,21 @@ export default function New() {
             <>
               <label class="label mt-3">Fabric Version</label>
               <p class="input w-full">{loaderVersion()?.loader.version}</p>
-              <div class="max-h-[300px] rounded-sm overflow-y-auto border border-gray-300 bg-white z-50 w-full mt-1">
-                <For each={fabricVersions()}>
-                  {(version) => (
-                    <div
-                      class="p-1 cursor-pointer hover:bg-[#e9e9e9]"
-                      onClick={() => {
-                        setLoaderVersion(version);
-                      }}
-                    >
-                      {version.loader.version}
-                    </div>
-                  )}
-                </For>
+              <div class="card bg-base-100 max-h-[300px] overflow-y-auto border border-base-300 w-full mt-1 hide-scrollbar">
+                <div class="card-body">
+                  <For each={fabricVersions()}>
+                    {(version) => (
+                      <div
+                        class="p-1 cursor-pointer hover:bg-base-200 px-2 py-2 rounded-2xl"
+                        onClick={() => {
+                          setLoaderVersion(version);
+                        }}
+                      >
+                        {version.loader.version}
+                      </div>
+                    )}
+                  </For>
+                </div>
               </div>
             </>
           )}
@@ -226,7 +242,7 @@ export default function New() {
           ></progress>
           {!downloading() && (
             <button
-              class="btn py-4"
+              class="btn py-4 mt-4"
               onClick={() => {
                 const modal = document.getElementById(
                   "my_modal_1",

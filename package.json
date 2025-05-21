@@ -12,6 +12,7 @@
   },
   "license": "MIT",
   "dependencies": {
+    "@minht11/solid-virtual-container": "^0.2.1",
     "@solidjs/router": "^0.15.3",
     "@tailwindcss/vite": "^4.1.7",
     "@tauri-apps/api": "^2",

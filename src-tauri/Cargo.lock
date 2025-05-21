@@ -2310,6 +2310,8 @@ dependencies = [
  "tauri-build",
  "tauri-plugin-opener",
  "tokio",
+ "urlencoding",
+ "uuid",
  "webbrowser",
 ]
 
@@ -2447,7 +2449,7 @@ checksum = "2532096657941c2fea9c289d370a250971c689d4f143798ff67113ec042024a5"
 [[package]]
 name = "mc_bootstrap"
 version = "0.1.1"
-source = "git+https://github.com/aapelix/bootstrap/?branch=main#6377fc0d10570d05876d03b1c58ac007cbef5f4e"
+source = "git+https://github.com/aapelix/bootstrap/?branch=main#b3a57eedbb0376448e98ab1f2999cff51f48a7a1"
 dependencies = [
  "serde",
  "serde_json",
